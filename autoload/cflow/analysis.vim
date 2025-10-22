@@ -15,15 +15,8 @@ function! cflow#analysis#Analyze(variable, line, col)
     let l:scope = {'start_line': 1, 'end_line': line('$')}
   endif
 
-  " Find all references to the variable
-  let l:refs = cflow#parser#FindVariableRefs(a:variable, l:scope.start_line, l:scope.end_line)
-
-  if empty(l:refs)
-    return {'relevant_lines': [], 'dependencies': {}}
-  endif
-
-  " Build dependency graph
-  let l:dep_graph = s:BuildDependencyGraph(l:refs, a:variable, l:scope)
+  " Build COMPLETE dependency graph for ALL variables in scope
+  let l:dep_graph = s:BuildCompleteDependencyGraph(l:scope)
 
   " Perform slicing based on direction
   let l:relevant_lines = {}
@@ -51,45 +44,72 @@ function! cflow#analysis#Analyze(variable, line, col)
     \ }
 endfunction
 
-" Build a dependency graph from variable references
-function! s:BuildDependencyGraph(refs, variable, scope)
+" Build a COMPLETE dependency graph for ALL variables in the scope
+" This is the key to making variable flow tracking work
+function! s:BuildCompleteDependencyGraph(scope)
   let l:graph = {}
 
-  for l:ref in a:refs
-    if l:ref.type ==# 'write' || l:ref.type ==# 'both'
-      " This is an assignment or modification
-      let l:line_key = string(l:ref.line)
+  " Scan all lines in the scope
+  for l:lnum in range(a:scope.start_line, a:scope.end_line)
+    let l:line = getline(l:lnum)
+    let l:line_key = string(l:lnum)
 
-      if !has_key(l:graph, l:line_key)
+    " Skip empty lines and comments
+    if l:line =~ '^\s*$' || l:line =~ '^\s*//'
+      continue
+    endif
+
+    " Check if this is an assignment (contains '=')
+    if l:line =~ '='
+      " Extract the target variable (LHS of assignment)
+      let l:target = s:ExtractAssignmentTarget(l:line)
+
+      if !empty(l:target)
+        " Extract variables from RHS
+        let l:rhs_vars = cflow#parser#ExtractRHSVariables(l:line)
+
+        " Add to graph
         let l:graph[l:line_key] = {
-          \ 'line': l:ref.line,
+          \ 'line': l:lnum,
           \ 'type': 'write',
-          \ 'target': a:variable,
-          \ 'depends_on': []
-          \ }
-      endif
-
-      " Extract variables from RHS
-      let l:rhs_vars = cflow#parser#ExtractRHSVariables(l:ref.text)
-      let l:graph[l:line_key].depends_on = l:rhs_vars
-    endif
-
-    if l:ref.type ==# 'read' || l:ref.type ==# 'both'
-      " This is a read
-      let l:line_key = string(l:ref.line)
-
-      if !has_key(l:graph, l:line_key)
-        let l:graph[l:line_key] = {
-          \ 'line': l:ref.line,
-          \ 'type': 'read',
-          \ 'target': a:variable,
-          \ 'depends_on': [a:variable]
+          \ 'target': l:target,
+          \ 'depends_on': l:rhs_vars
           \ }
       endif
     endif
+
+    " Also track function calls and returns as reads
+    " For now, we focus on assignments as those are the main data flow
   endfor
 
   return l:graph
+endfunction
+
+" Extract the target variable from an assignment line
+" e.g., "int cp = foo(ep);" -> "cp"
+" e.g., "result = x + y;" -> "result"
+function! s:ExtractAssignmentTarget(line)
+  " Match: <type> <var> = ... or <var> = ...
+  " Pattern 1: Variable declaration with assignment: int x = ...
+  let l:match = matchlist(a:line, '^\s*\w\+\s\+\*\?\s*\(\w\+\)\s*=')
+  if !empty(l:match)
+    return l:match[1]
+  endif
+
+  " Pattern 2: Simple assignment: x = ...
+  let l:match = matchlist(a:line, '^\s*\(\w\+\)\s*=')
+  if !empty(l:match)
+    return l:match[1]
+  endif
+
+  " Pattern 3: Array or pointer: x[i] = ... or *p = ...
+  " For now, extract the base variable
+  let l:match = matchlist(a:line, '^\s*\*\?\s*\(\w\+\)')
+  if !empty(l:match) && a:line =~ '='
+    return l:match[1]
+  endif
+
+  return ''
 endfunction
 
 " Perform backward slicing (find what influences the variable)
