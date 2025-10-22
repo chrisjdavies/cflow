@@ -1,0 +1,217 @@
+*cflow.txt*  Code focus plugin for C files
+
+Author:  Claude
+License: MIT
+Version: 1.0.0
+
+==============================================================================
+CONTENTS                                                      *cflow-contents*
+
+    1. Introduction .......................... |cflow-intro|
+    2. Installation .......................... |cflow-installation|
+    3. Usage ................................. |cflow-usage|
+    4. Commands .............................. |cflow-commands|
+    5. Mappings .............................. |cflow-mappings|
+    6. Configuration ......................... |cflow-configuration|
+    7. Examples .............................. |cflow-examples|
+    8. Limitations ........................... |cflow-limitations|
+    9. About ................................. |cflow-about|
+
+==============================================================================
+1. INTRODUCTION                                                  *cflow-intro*
+
+CFlow is a code focus plugin that helps you understand C code by dimming
+unrelated lines. When you focus on a variable, CFlow performs data flow
+analysis to find:
+
+  • What influences the variable (backward slice)
+  • What the variable influences (forward slice)
+
+All unrelated code is dimmed, letting you focus on what matters.
+
+Inspired by flowistry for Rust: https://github.com/willcrichton/flowistry
+
+==============================================================================
+2. INSTALLATION                                          *cflow-installation*
+
+Using vim-plug: >
+    Plug 'username/cflow'
+<
+
+Using Vundle: >
+    Plugin 'username/cflow'
+<
+
+Manual installation:
+    Copy plugin/ and autoload/ directories to ~/.vim/
+
+==============================================================================
+3. USAGE                                                          *cflow-usage*
+
+Basic workflow:
+
+1. Open a C file
+2. Place cursor on a variable
+3. Press <leader>cf (or run :CFlowFocus)
+4. Unrelated code is dimmed
+5. Press <leader>cc to clear
+
+==============================================================================
+4. COMMANDS                                                    *cflow-commands*
+
+:CFlowFocus                                                      *:CFlowFocus*
+    Focus on the variable under cursor. Performs data flow analysis and dims
+    unrelated code.
+
+:CFlowClear                                                      *:CFlowClear*
+    Clear all highlighting and return to normal view.
+
+:CFlowToggle                                                    *:CFlowToggle*
+    Toggle focus on/off. If currently focused, clears. Otherwise, focuses.
+
+:CFlowStatus                                                    *:CFlowStatus*
+    Show plugin status and configuration.
+
+==============================================================================
+5. MAPPINGS                                                    *cflow-mappings*
+
+Default mappings (in normal mode):
+
+<leader>cf      Focus on variable under cursor (|:CFlowFocus|)
+<leader>cc      Clear highlighting (|:CFlowClear|)
+<leader>ct      Toggle focus (|:CFlowToggle|)
+
+To disable default mappings: >
+    let g:cflow_no_mappings = 1
+<
+
+To define custom mappings: >
+    nmap <your-key> :CFlowFocus<CR>
+<
+
+==============================================================================
+6. CONFIGURATION                                        *cflow-configuration*
+
+*g:cflow_enabled*
+    Enable/disable the plugin.
+    Default: 1 >
+        let g:cflow_enabled = 1
+<
+
+*g:cflow_dim_amount*
+    How much to dim irrelevant code (0-100).
+    Default: 60 >
+        let g:cflow_dim_amount = 60
+<
+
+*g:cflow_scope*
+    Scope of analysis: 'function' or 'file'.
+    Default: 'function' >
+        let g:cflow_scope = 'function'
+<
+
+*g:cflow_direction*
+    Direction of slicing: 'both', 'backward', or 'forward'.
+    - 'backward': Show what influences the variable
+    - 'forward': Show what the variable influences
+    - 'both': Show both directions
+    Default: 'both' >
+        let g:cflow_direction = 'both'
+<
+
+*g:cflow_highlight_variable*
+    Highlight the focused variable itself.
+    Default: 1 >
+        let g:cflow_highlight_variable = 1
+<
+
+*g:cflow_auto_clear*
+    Automatically clear highlighting when cursor moves.
+    Default: 0 >
+        let g:cflow_auto_clear = 0
+<
+
+*g:cflow_no_mappings*
+    Disable default key mappings.
+    Default: 0 (mappings enabled) >
+        let g:cflow_no_mappings = 1
+<
+
+Highlight Groups:
+
+*CFlowDimmed*
+    Highlight for dimmed (irrelevant) code. >
+        highlight CFlowDimmed ctermfg=darkgray guifg=#606060
+<
+
+*CFlowFocused*
+    Highlight for the focused variable. >
+        highlight CFlowFocused cterm=bold,underline gui=bold,underline
+<
+
+*CFlowDependency*
+    Highlight for dependency lines (optional, not used by default). >
+        highlight CFlowDependency ctermfg=cyan guifg=#00afaf
+<
+
+==============================================================================
+7. EXAMPLES                                                    *cflow-examples*
+
+Example 1: Simple data flow >
+    int a = 5;
+    int b = a + 10;      // depends on a
+    int c = b * 2;       // depends on b
+    int d = 100;         // independent
+    int result = c + 3;  // depends on c
+<
+Focus on 'result': lines with a, b, c, result stay visible; line with d dims.
+
+Example 2: Control flow >
+    int x = 10;
+    int result = 0;
+
+    if (x > 5) {
+        result = x * 2;
+    }
+
+    return result;
+<
+Focus on 'result': includes if condition because it guards the assignment.
+
+Example 3: Configuration >
+    " In your .vimrc
+    let g:cflow_enabled = 1
+    let g:cflow_dim_amount = 70
+    let g:cflow_scope = 'function'
+    let g:cflow_direction = 'backward'
+
+    " Custom colors
+    highlight CFlowDimmed ctermfg=242 guifg=#6c6c6c
+<
+
+==============================================================================
+8. LIMITATIONS                                              *cflow-limitations*
+
+CFlow uses heuristic analysis and has limitations:
+
+  • Scope: Analyzes current function by default
+  • Pointers: Simple tracking only, no complex aliasing
+  • Macros: Limited macro expansion
+  • Cross-function: Limited inter-procedural analysis
+  • Accuracy: ~80-90% for typical code
+
+These tradeoffs allow working without compilation.
+
+==============================================================================
+9. ABOUT                                                          *cflow-about*
+
+CFlow is inspired by flowistry (https://github.com/willcrichton/flowistry),
+a tool for Rust that uses compiler-level information flow analysis.
+
+CFlow brings similar functionality to C and Vim, using practical heuristics
+instead of compiler internals.
+
+GitHub: https://github.com/username/cflow
+Issues: https://github.com/username/cflow/issues
+
+vim:tw=78:ts=8:ft=help:norl:

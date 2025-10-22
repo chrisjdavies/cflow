@@ -1,0 +1,23 @@
+# Vim swap files
+*.swp
+*.swo
+*~
+
+# Vim session files
+Session.vim
+.netrwhist
+
+# Test artifacts
+/tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Temporary test files
+/tmp_test_*
+*.tmp
